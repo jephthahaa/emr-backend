@@ -1,0 +1,105 @@
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`zomujo-api.briannewton.dev`)"
+      - "traefik.http.routers.app.tls=true"
+      - "traefik.http.routers.app.tls.certresolver=letsencrypt"
+      - "traefik.port=9000"
+    depends_on:
+      - traefik
+      - db
+    networks:
+      - traefik
+    restart: always
+  db:
+    image: mysql/mysql-server:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: tesla
+      MYSQL_DATABASE: zomujo
+      MYSQL_USER: tesla
+      MYSQL_PASSWORD: tesla
+    ports:
+      - "3306:3306"
+    depends_on:
+      - traefik
+    networks:
+      - traefik
+    restart: always
+  traefik:
+    # The official v2 Traefik docker image
+    image: traefik:v2.9
+    # Enables the web UI and tells Traefik to listen to docker
+    command:
+      # We are going to use the docker provider
+      - "--providers.docker"
+      # Only enabled containers should be exposed
+      - "--providers.docker.exposedByDefault=false"
+      # We want to use the dashbaord
+      - "--api.dashboard=true"
+      # The entrypoints we want to expose
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Enable ACME (Let's Encrypt): automatic SSL.
+      - "--certificatesresolvers.letsencrypt.acme.email=dragonbrian33@gmail.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      # Global redirect to https
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+    ports:
+      - "80:80"
+      - "443:443"
+    labels:
+      # Since we don't expose containers per default we also need to enable traefik to expose the dashboard.
+      - "traefik.enable=true"
+      # http
+      # Since we are using the http challenge we and use the redirect we need 
+      #  to enable the http entrypoint.
+      - "traefik.http.routers.dashboard-http.entrypoints=web"
+      # The domain we want to listen to
+      - "traefik.http.routers.dashboard-http.rule=Host(`traefik.briannewton.dev`)"
+      # We need to attach the api@internal service to the dashboard-http router
+      #  in order for the dashboard to be able to access the api (I think 🙈)
+      - "traefik.http.routers.dashboard-http.service=api@internal"
+      # https
+      # Enable the https entrypoint
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      # The domain we want to listen to
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.briannewton.dev`)"
+      # We want to obtain a certificate through Let's Encrypt
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      # We need to attach the api@internal service to the dashboard router
+      #  in order for the dashboard to be able to access the api (I think 🙈)
+      - "traefik.http.routers.dashboard.service=api@internal"
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock
+      # The acme.json file is required by Let's Encrypt
+      - ../storage/letsencrypt/acme.json:/etc/traefik/acme/acme.json
+    networks:
+      - traefik
+    restart: always
+
+  whoami:
+    # A container that exposes an API to show its IP address
+    hostname: portfolio
+    image: traefik/whoami
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`whoami.briannewton.dev`)"
+    networks:
+      - traefik
+    restart: always
+    
+
+networks:
+  traefik:
+    external: true

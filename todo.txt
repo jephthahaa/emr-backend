@@ -1,0 +1,10 @@
+patient labs view and download ✅
+patient prescription view and download ✅
+doctor consultation save prescription ✅
+doctor consultation labs grid ✅
+doctor appointment table user profile images ✅
+doctor add signature ✅
+doctor create prescription
+backend add-future-visit error 500
+messaging
+remember me logic
